@@ -1,50 +1,42 @@
 # wx-article-sync
 
-`wx-article-sync` 通过 mptext 公共 API 定时同步微信公众号文章，并把文章内容保存为本地文件。
+## 项目作用
 
-## API
+`wx-article-sync` 依赖 mptext 在线 API，定时拉取微信公众号文章列表，下载新增文章，并保存到本地目录。已同步过的文章 URL 会记录在状态文件里，后续运行不会重复下载。
 
-实现依据 `https://docs.mptext.top/advanced/api.html`：
+## 最小启动
 
-- 每个请求都会携带 `X-Auth-Key`。
-- 同步前通过 `/api/public/v1/authkey` 校验 API key。
-- 需要时通过 `/api/public/v1/account` 把公众号关键词解析成 `fakeid`。
-- 通过 `/api/public/v1/article` 获取指定 `fakeid` 的文章列表。
-- 通过 `/api/public/v1/download` 下载新增文章，支持 `html`、`markdown`、`text`、`json` 格式。
+复制配置文件并填写要同步的公众号：
 
-## 配置
+```bash
+cp config.example.json config.json
+```
 
-复制 `config.example.json` 为 `config.json`，然后在环境变量中设置 API key：
+设置 mptext API key：
 
 ```bash
 export MP_TEXT_API_KEY="your-api-key"
 ```
 
-如果已经知道公众号的 `fakeid`，优先在 `accounts` 中直接配置 `fakeid`。也可以只配置 `keyword`，程序会使用 API 返回的第一个搜索结果。
-
-## 单次运行
+单次同步：
 
 ```bash
 uv run wx-article-sync --config config.json
 ```
 
-命令会把文章内容写入 `data/articles`，并在 `data/state.json` 中记录已经同步过的 URL，避免重复下载。
-
-## 定时运行
-
-作为常驻进程运行：
+常驻定时同步：
 
 ```bash
 uv run wx-article-sync --config config.json --daemon
 ```
 
-如果使用 cron，建议让程序保持单次同步，由 cron 负责调度：
+## 运维注意事项
 
-```cron
-0 * * * * cd /path/to/wx-article-sync && MP_TEXT_API_KEY=your-api-key uv run wx-article-sync --config config.json
-```
-
-## 测试
+- API key 有效期跟 mptext 登录会话一致，过期后同步会失败，需要重新登录并更新 `MP_TEXT_API_KEY`。
+- 优先在 `config.json` 里配置公众号 `fakeid`；只配置 `keyword` 时会使用 API 搜索结果的第一项，账号重名时可能选错。
+- 默认文章保存到 `data/articles`，同步状态保存到 `data/state.json`；备份或迁移时要一起保留 `data/state.json`。
+- 用 cron 调度时建议运行单次同步命令，不要在 cron 里加 `--daemon`。
+- 每次改代码后运行测试：
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_*.py'
