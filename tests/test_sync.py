@@ -133,14 +133,52 @@ class ArticleSyncerTest(unittest.TestCase):
 
             self.assertEqual(first_result.downloaded, 1)
             self.assertEqual(second_result.downloaded, 0)
-            markdown_files = sorted(output_dir.glob("*.md"))
-            metadata_files = sorted(output_dir.glob("*.json"))
-            self.assertEqual(len(markdown_files), 1)
-            self.assertEqual(markdown_files[0].read_text(encoding="utf-8"), "# First Article\n\nBody")
-            metadata = json.loads(metadata_files[0].read_text(encoding="utf-8"))
+            article_dir = output_dir / "2024-03-09_First Article"
+            self.assertTrue(article_dir.is_dir())
+            markdown_path = article_dir / "article.md"
+            metadata_path = article_dir / "metadata.json"
+            self.assertEqual(markdown_path.read_text(encoding="utf-8"), "# First Article\n\nBody")
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             self.assertEqual(metadata["url"], "https://mp.weixin.qq.com/s/first")
             state = json.loads(state_path.read_text(encoding="utf-8"))
             self.assertIn("https://mp.weixin.qq.com/s/first", state["seen_urls"])
+
+    def test_article_folder_name_preserves_chinese_title_and_sanitizes_separators(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "articles"
+            state_path = Path(tmpdir) / "state.json"
+            transport = FakeTransport(
+                [
+                    {"code": 0},
+                    {
+                        "code": 0,
+                        "data": {
+                            "list": [
+                                {
+                                    "title": "中文标题/含:非法字符",
+                                    "url": "https://mp.weixin.qq.com/s/chinese",
+                                    "publish_time": "2026-05-12 10:20:00",
+                                }
+                            ]
+                        },
+                    },
+                    "正文",
+                ]
+            )
+            config = SyncConfig(
+                api_base_url="https://down.mptext.top",
+                api_key="secret-key",
+                output_dir=output_dir,
+                state_path=state_path,
+                accounts=[AccountConfig(fakeid="fake-id")],
+            )
+            syncer = ArticleSyncer(config, client=MpTextClient(config.api_base_url, config.api_key, transport=transport))
+
+            syncer.run_once()
+
+            article_dir = output_dir / "2026-05-12_中文标题_含_非法字符"
+            self.assertTrue(article_dir.is_dir())
+            self.assertEqual((article_dir / "article.md").read_text(encoding="utf-8"), "正文")
 
     def test_resolves_account_keyword_to_first_fakeid(self):
         with tempfile.TemporaryDirectory() as tmpdir:

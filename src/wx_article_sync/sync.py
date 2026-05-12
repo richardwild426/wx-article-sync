@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -82,9 +81,10 @@ class ArticleSyncer:
 
     def _save_article(self, article: Article, content: str, fakeid: str) -> None:
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
-        stem = self._article_stem(article)
-        content_path = self.config.output_dir / f"{stem}.{self._extension()}"
-        metadata_path = self.config.output_dir / f"{stem}.json"
+        article_dir = self.config.output_dir / self._article_dir_name(article)
+        article_dir.mkdir(parents=True, exist_ok=True)
+        content_path = article_dir / f"article.{self._extension()}"
+        metadata_path = article_dir / "metadata.json"
         metadata = {
             "title": article.title,
             "url": article.url,
@@ -97,23 +97,22 @@ class ArticleSyncer:
         self._atomic_write(content_path, content)
         self._atomic_write(metadata_path, json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
 
-    def _article_stem(self, article: Article) -> str:
-        digest = hashlib.sha1(article.url.encode("utf-8")).hexdigest()[:10]
-        title = re.sub(r"[^0-9A-Za-z._-]+", "-", article.title).strip("-").lower()
+    def _article_dir_name(self, article: Article) -> str:
+        title = _safe_path_name(article.title)
         if not title:
             title = "article"
-        return f"{self._publish_prefix(article)}-{title[:80]}-{digest}"
+        return f"{self._publish_date(article)}_{title[:120]}"
 
     @staticmethod
-    def _publish_prefix(article: Article) -> str:
+    def _publish_date(article: Article) -> str:
         value = article.publish_time
         if isinstance(value, int):
-            return datetime.fromtimestamp(value, UTC).strftime("%Y%m%d")
+            return datetime.fromtimestamp(value, UTC).strftime("%Y-%m-%d")
         if isinstance(value, str) and value:
             digits = re.sub(r"\D", "", value)
             if len(digits) >= 8:
-                return digits[:8]
-        return datetime.now(UTC).strftime("%Y%m%d")
+                return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+        return datetime.now(UTC).strftime("%Y-%m-%d")
 
     def _extension(self) -> str:
         return {"markdown": "md", "html": "html", "text": "txt", "json": "json"}.get(
@@ -131,3 +130,9 @@ class ArticleSyncer:
 
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _safe_path_name(value: str) -> str:
+    name = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", value)
+    name = re.sub(r"\s+", " ", name).strip(" ._")
+    return name
