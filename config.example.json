@@ -1,0 +1,20 @@
+{
+  "api_base_url": "https://down.mptext.top",
+  "api_key_env": "MP_TEXT_API_KEY",
+  "output_dir": "data/articles",
+  "state_path": "data/state.json",
+  "content_format": "markdown",
+  "interval_seconds": 3600,
+  "page_size": 20,
+  "max_pages": 1,
+  "accounts": [
+    {
+      "fakeid": "REPLACE_WITH_ACCOUNT_FAKEID"
+    },
+    {
+      "keyword": "公众号名称关键词",
+      "article_keyword": "可选文章标题关键词"
+    }
+  ]
+}
+
