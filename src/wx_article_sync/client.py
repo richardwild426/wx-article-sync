@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
@@ -37,11 +38,15 @@ class MpTextClient:
         auth_key: str,
         *,
         timeout: float = 30.0,
+        max_attempts: int = 3,
+        retry_sleep_seconds: float = 1.0,
         transport: Transport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.auth_key = auth_key
         self.timeout = timeout
+        self.max_attempts = max(max_attempts, 1)
+        self.retry_sleep_seconds = retry_sleep_seconds
         self.transport = transport or self._default_transport
 
     def validate_auth_key(self) -> None:
@@ -88,7 +93,25 @@ class MpTextClient:
     def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         query = f"?{urlencode(params)}" if params else ""
         url = f"{self.base_url}{path}{query}"
-        return self.transport("GET", url, {"X-Auth-Key": self.auth_key}, self.timeout)
+        last_error: Exception | None = None
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                return self.transport("GET", url, self._headers(), self.timeout)
+            except Exception as exc:
+                last_error = exc
+                if attempt >= self.max_attempts:
+                    break
+                if self.retry_sleep_seconds > 0:
+                    time.sleep(self.retry_sleep_seconds)
+        assert last_error is not None
+        raise last_error
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "X-Auth-Key": self.auth_key,
+            "Accept": "application/json",
+            "User-Agent": "wx-article-sync/0.1 (+https://docs.mptext.top/advanced/api.html)",
+        }
 
     @staticmethod
     def _default_transport(method: str, url: str, headers: dict[str, str], timeout: float) -> Any:

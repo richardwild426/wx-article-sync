@@ -51,7 +51,10 @@ class SyncConfig:
         api_key_env = payload.get("api_key_env", "MP_TEXT_API_KEY")
         api_key = payload.get("api_key") or os.environ.get(str(api_key_env))
         if not api_key:
-            raise ConfigError(f"Missing API key. Set {api_key_env} or api_key in config.")
+            raise ConfigError(
+                "Missing API key. Set the environment variable named by api_key_env, "
+                "or set api_key in config."
+            )
         accounts_payload = payload.get("accounts")
         if not isinstance(accounts_payload, list) or not accounts_payload:
             raise ConfigError("Config must include at least one account")

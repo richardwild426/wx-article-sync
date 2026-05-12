@@ -42,6 +42,8 @@ class MpTextClientTest(unittest.TestCase):
 
         request = transport.requests[0]
         self.assertEqual(request["headers"]["X-Auth-Key"], "secret-key")
+        self.assertIn("wx-article-sync", request["headers"]["User-Agent"])
+        self.assertEqual(request["headers"]["Accept"], "application/json")
         self.assertIn("/api/public/v1/article?", request["url"])
         self.assertIn("fakeid=fake-id", request["url"])
         self.assertIn("begin=20", request["url"])
@@ -59,6 +61,25 @@ class MpTextClientTest(unittest.TestCase):
         content = client.download_article("https://mp.weixin.qq.com/s/x", "markdown")
 
         self.assertEqual(content, "# Title")
+
+    def test_retries_transient_connection_errors(self):
+        transport = FakeTransport(
+            [
+                Exception("temporary connection reset"),
+                {"code": 0, "data": {"content": "# Title"}},
+            ]
+        )
+        client = MpTextClient(
+            base_url="https://down.mptext.top",
+            auth_key="secret-key",
+            transport=transport,
+            retry_sleep_seconds=0,
+        )
+
+        content = client.download_article("https://mp.weixin.qq.com/s/x", "markdown")
+
+        self.assertEqual(content, "# Title")
+        self.assertEqual(len(transport.requests), 2)
 
 
 class ArticleSyncerTest(unittest.TestCase):
@@ -175,6 +196,27 @@ class ArticleSyncerTest(unittest.TestCase):
 
             self.assertEqual(config.api_key, "secret-key")
             self.assertEqual(config.output_dir, (Path(tmpdir) / "articles").resolve())
+
+    def test_config_error_does_not_echo_api_key_env_value(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            misplaced_secret = "ab7c5801d4ad49f18322318f96c5d6a0"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "api_key_env": misplaced_secret,
+                        "accounts": [{"fakeid": "fake-id"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(Exception) as context:
+                SyncConfig.from_file(config_path)
+
+            message = str(context.exception)
+            self.assertIn("api_key", message)
+            self.assertNotIn(misplaced_secret, message)
 
 
 if __name__ == "__main__":

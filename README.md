@@ -38,7 +38,8 @@ uv run wx-article-sync --config config.json --daemon
 - 用 cron 调度时建议运行单次同步命令，不要在 cron 里加 `--daemon`。
 - `config.json` 可配置项：
   - `api_base_url`：mptext API 地址，默认 `https://down.mptext.top`。
-  - `api_key_env`：读取 API key 的环境变量名，默认 `MP_TEXT_API_KEY`。
+  - `api_key`：直接写入 API key；本地单机运行可用，提交代码前不要把真实 key 放进仓库。
+  - `api_key_env`：读取 API key 的环境变量名，默认 `MP_TEXT_API_KEY`；这里填的是变量名，不是 key 本身。
   - `output_dir`：文章内容和元数据保存目录，默认 `data/articles`。
   - `state_path`：已同步 URL 状态文件，默认 `data/state.json`。
   - `content_format`：下载格式，可用 `html`、`markdown`、`text`、`json`。
