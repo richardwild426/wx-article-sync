@@ -42,6 +42,79 @@ uv run playwright install chromium
 uv run wx-article-sync --config config.json --daemon
 ```
 
+## macOS 定时任务
+
+macOS 推荐用 `launchd` 定时执行单次同步，不要在定时任务里使用 `--daemon`。
+
+先确认 `uv` 的绝对路径：
+
+```bash
+which uv
+```
+
+创建日志目录：
+
+```bash
+mkdir -p "$HOME/Library/Logs/wx-article-sync"
+```
+
+创建 `~/Library/LaunchAgents/com.wx-article-sync.plist`，把 `WorkingDirectory` 改成你的项目目录，把 `/opt/homebrew/bin/uv` 改成 `which uv` 输出的路径：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.wx-article-sync</string>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/zvector/ws/workflow/wx-article-sync</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/uv</string>
+    <string>run</string>
+    <string>wx-article-sync</string>
+    <string>--config</string>
+    <string>config.json</string>
+  </array>
+
+  <key>StartInterval</key>
+  <integer>3600</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/zvector/Library/Logs/wx-article-sync/stdout.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/zvector/Library/Logs/wx-article-sync/stderr.log</string>
+</dict>
+</plist>
+```
+
+加载并启动任务：
+
+```bash
+launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.wx-article-sync.plist"
+launchctl kickstart -k gui/$(id -u)/com.wx-article-sync
+```
+
+查看任务状态和日志：
+
+```bash
+launchctl print gui/$(id -u)/com.wx-article-sync
+tail -f "$HOME/Library/Logs/wx-article-sync/stdout.log" "$HOME/Library/Logs/wx-article-sync/stderr.log"
+```
+
+修改 plist 后重新加载：
+
+```bash
+launchctl bootout gui/$(id -u)/com.wx-article-sync
+launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.wx-article-sync.plist"
+```
+
+如果用环境变量提供 API key，不要只在终端里 `export MP_TEXT_API_KEY`，`launchd` 默认读不到终端环境变量。更稳妥的方式是把 `api_key` 写入本机 `config.json`，并确认 `config.json` 不会提交到仓库。
+
 ## 运维注意事项
 
 - API key 有效期跟 mptext 登录会话一致，过期后同步会失败，需要重新登录并更新 `MP_TEXT_API_KEY`。
