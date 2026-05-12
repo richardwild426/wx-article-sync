@@ -36,6 +36,17 @@ uv run wx-article-sync --config config.json --daemon
 - 优先在 `config.json` 里配置公众号 `fakeid`；只配置 `keyword` 时会使用 API 搜索结果的第一项，账号重名时可能选错。
 - 默认文章保存到 `data/articles`，同步状态保存到 `data/state.json`；备份或迁移时要一起保留 `data/state.json`。
 - 用 cron 调度时建议运行单次同步命令，不要在 cron 里加 `--daemon`。
+- `config.json` 可配置项：
+  - `api_base_url`：mptext API 地址，默认 `https://down.mptext.top`。
+  - `api_key_env`：读取 API key 的环境变量名，默认 `MP_TEXT_API_KEY`。
+  - `output_dir`：文章内容和元数据保存目录，默认 `data/articles`。
+  - `state_path`：已同步 URL 状态文件，默认 `data/state.json`。
+  - `content_format`：下载格式，可用 `html`、`markdown`、`text`、`json`。
+  - `interval_seconds`：`--daemon` 模式下两次同步的间隔秒数，默认 `3600`。
+  - `page_size`：每页文章数，最大 `20`。
+  - `max_pages`：每次同步每个账号最多拉取页数，默认 `1`。
+  - `timeout_seconds`：API 请求超时时间，默认 `30`。
+  - `accounts`：要同步的公众号列表；每项配置 `fakeid`，或用 `keyword` 搜索账号，可选 `article_keyword` 过滤文章标题。
 - 每次改代码后运行测试：
 
 ```bash
