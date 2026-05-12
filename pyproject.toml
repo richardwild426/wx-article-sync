@@ -3,7 +3,9 @@ name = "wx-article-sync"
 version = "0.1.0"
 description = "Scheduled WeChat article synchronization via the mptext public API."
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "playwright>=1.56.0",
+]
 
 [project.scripts]
 wx-article-sync = "wx_article_sync.cli:main"
@@ -11,4 +13,3 @@ wx-article-sync = "wx_article_sync.cli:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-

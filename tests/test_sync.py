@@ -29,6 +29,15 @@ class FakeTransport:
         return response
 
 
+class FakePdfConverter:
+    def __init__(self):
+        self.calls = []
+
+    def convert(self, html_path, pdf_path, root_dir):
+        self.calls.append((html_path, pdf_path, root_dir))
+        pdf_path.write_bytes(b"%PDF-1.4\n")
+
+
 class MpTextClientTest(unittest.TestCase):
     def test_sends_auth_key_and_query_parameters(self):
         transport = FakeTransport([{"code": 0, "data": []}])
@@ -179,6 +188,93 @@ class ArticleSyncerTest(unittest.TestCase):
             article_dir = output_dir / "2026-05-12_中文标题_含_非法字符"
             self.assertTrue(article_dir.is_dir())
             self.assertEqual((article_dir / "article.md").read_text(encoding="utf-8"), "正文")
+
+    def test_html_sync_converts_article_to_pdf_with_folder_name(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "articles"
+            state_path = Path(tmpdir) / "state.json"
+            pdf_converter = FakePdfConverter()
+            transport = FakeTransport(
+                [
+                    {"code": 0},
+                    {
+                        "code": 0,
+                        "data": {
+                            "list": [
+                                {
+                                    "title": "HTML Article",
+                                    "url": "https://mp.weixin.qq.com/s/html",
+                                    "publish_time": 1710000000,
+                                }
+                            ]
+                        },
+                    },
+                    "<html><body>Body</body></html>",
+                ]
+            )
+            config = SyncConfig(
+                api_base_url="https://down.mptext.top",
+                api_key="secret-key",
+                output_dir=output_dir,
+                state_path=state_path,
+                content_format="html",
+                accounts=[AccountConfig(fakeid="fake-id")],
+            )
+            syncer = ArticleSyncer(
+                config,
+                client=MpTextClient(config.api_base_url, config.api_key, transport=transport),
+                pdf_converter=pdf_converter,
+            )
+
+            syncer.run_once()
+
+            article_dir = output_dir / "2024-03-09_HTML Article"
+            html_path = article_dir / "article.html"
+            pdf_path = article_dir / "2024-03-09_HTML Article.pdf"
+            self.assertEqual(html_path.read_text(encoding="utf-8"), "<html><body>Body</body></html>")
+            self.assertEqual(pdf_path.read_bytes(), b"%PDF-1.4\n")
+            self.assertEqual(pdf_converter.calls, [(html_path, pdf_path, output_dir)])
+
+    def test_non_html_sync_does_not_convert_to_pdf(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "articles"
+            state_path = Path(tmpdir) / "state.json"
+            pdf_converter = FakePdfConverter()
+            transport = FakeTransport(
+                [
+                    {"code": 0},
+                    {
+                        "code": 0,
+                        "data": {
+                            "list": [
+                                {
+                                    "title": "Markdown Article",
+                                    "url": "https://mp.weixin.qq.com/s/markdown",
+                                    "publish_time": 1710000000,
+                                }
+                            ]
+                        },
+                    },
+                    "# Body",
+                ]
+            )
+            config = SyncConfig(
+                api_base_url="https://down.mptext.top",
+                api_key="secret-key",
+                output_dir=output_dir,
+                state_path=state_path,
+                content_format="markdown",
+                accounts=[AccountConfig(fakeid="fake-id")],
+            )
+            syncer = ArticleSyncer(
+                config,
+                client=MpTextClient(config.api_base_url, config.api_key, transport=transport),
+                pdf_converter=pdf_converter,
+            )
+
+            syncer.run_once()
+
+            self.assertEqual(pdf_converter.calls, [])
 
     def test_resolves_account_keyword_to_first_fakeid(self):
         with tempfile.TemporaryDirectory() as tmpdir:

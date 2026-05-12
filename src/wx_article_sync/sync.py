@@ -10,6 +10,7 @@ from typing import Any
 
 from .client import Article, MpTextApiError, MpTextClient
 from .config import AccountConfig, SyncConfig
+from .pdf import PdfConverter, PlaywrightPdfConverter
 
 
 @dataclass(frozen=True)
@@ -20,13 +21,20 @@ class SyncResult:
 
 
 class ArticleSyncer:
-    def __init__(self, config: SyncConfig, *, client: MpTextClient | None = None) -> None:
+    def __init__(
+        self,
+        config: SyncConfig,
+        *,
+        client: MpTextClient | None = None,
+        pdf_converter: PdfConverter | None = None,
+    ) -> None:
         self.config = config
         self.client = client or MpTextClient(
             config.api_base_url,
             config.api_key,
             timeout=config.timeout_seconds,
         )
+        self.pdf_converter = pdf_converter or PlaywrightPdfConverter()
 
     def run_once(self, *, validate_auth: bool = True) -> SyncResult:
         if validate_auth:
@@ -96,6 +104,9 @@ class ArticleSyncer:
         }
         self._atomic_write(content_path, content)
         self._atomic_write(metadata_path, json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
+        if self.config.content_format == "html":
+            pdf_path = article_dir / f"{article_dir.name}.pdf"
+            self.pdf_converter.convert(content_path, pdf_path, self.config.output_dir)
 
     def _article_dir_name(self, article: Article) -> str:
         title = _safe_path_name(article.title)
