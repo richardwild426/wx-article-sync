@@ -8,6 +8,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from .logging import get_logger, redact_url
+
+
+logger = get_logger("client")
+
 
 class MpTextApiError(RuntimeError):
     pass
@@ -50,6 +55,7 @@ class MpTextClient:
         self.transport = transport or self._default_transport
 
     def validate_auth_key(self) -> None:
+        logger.info("Validating mptext API key")
         payload = self._get_json("/api/public/v1/authkey")
         if self._response_code(payload) != 0:
             raise MpTextApiError("mptext API key is invalid or expired")
@@ -95,13 +101,29 @@ class MpTextClient:
         url = f"{self.base_url}{path}{query}"
         last_error: Exception | None = None
         for attempt in range(1, self.max_attempts + 1):
+            logger.debug("mptext request attempt=%s/%s method=GET url=%s", attempt, self.max_attempts, redact_url(url))
             try:
-                return self.transport("GET", url, self._headers(), self.timeout)
+                payload = self.transport("GET", url, self._headers(), self.timeout)
+                logger.debug("mptext request succeeded attempt=%s/%s url=%s", attempt, self.max_attempts, redact_url(url))
+                return payload
             except Exception as exc:
                 last_error = exc
+                logger.warning(
+                    "mptext request failed attempt=%s/%s url=%s error=%s",
+                    attempt,
+                    self.max_attempts,
+                    redact_url(url),
+                    exc,
+                )
                 if attempt >= self.max_attempts:
                     break
                 if self.retry_sleep_seconds > 0:
+                    logger.info(
+                        "retrying mptext request in %.1fs attempt=%s/%s",
+                        self.retry_sleep_seconds,
+                        attempt + 1,
+                        self.max_attempts,
+                    )
                     time.sleep(self.retry_sleep_seconds)
         assert last_error is not None
         raise last_error

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from wx_article_sync.client import MpTextClient
 from wx_article_sync.config import AccountConfig, SyncConfig
+from wx_article_sync.logging import redact_url
 from wx_article_sync.sync import ArticleSyncer
 
 
@@ -39,6 +40,16 @@ class FakePdfConverter:
 
 
 class MpTextClientTest(unittest.TestCase):
+    def test_redacts_article_url_query_values_in_logs(self):
+        redacted = redact_url(
+            "https://down.mptext.top/api/public/v1/download?"
+            "url=https%3A%2F%2Fmp.weixin.qq.com%2Fs%2Fvery-secret-token&format=html"
+        )
+
+        self.assertIn("url=https%3A%2F%2Fmp.w...-token", redacted)
+        self.assertIn("format=html", redacted)
+        self.assertNotIn("very-secret", redacted)
+
     def test_sends_auth_key_and_query_parameters(self):
         transport = FakeTransport([{"code": 0, "data": []}])
         client = MpTextClient(

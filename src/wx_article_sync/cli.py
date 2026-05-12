@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import time
 
 from .config import ConfigError, SyncConfig
+from .logging import configure_logging, get_logger
 from .sync import ArticleSyncer
+
+
+logger = get_logger("cli")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -19,11 +22,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    logging.basicConfig(level=getattr(logging, args.log_level), format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging(args.log_level)
     try:
         config = SyncConfig.from_file(args.config)
     except (ConfigError, OSError, ValueError) as exc:
-        logging.error("Failed to load config: %s", exc)
+        logger.error("Failed to load config: %s", exc)
         return 2
 
     syncer = ArticleSyncer(config)
@@ -31,11 +34,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = syncer.run_once(validate_auth=not args.skip_auth_check)
         except Exception:
-            logging.exception("Sync failed")
+            logger.exception("Sync failed")
             if not args.daemon:
                 return 1
         else:
-            logging.info(
+            logger.info(
                 "Sync finished: scanned=%s downloaded=%s skipped=%s",
                 result.scanned,
                 result.downloaded,

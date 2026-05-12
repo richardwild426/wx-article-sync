@@ -24,6 +24,12 @@ export MP_TEXT_API_KEY="your-api-key"
 uv run wx-article-sync --config config.json
 ```
 
+排查网络或第三方 API 问题时打开调试日志：
+
+```bash
+uv run wx-article-sync --config config.json --log-level DEBUG
+```
+
 如果 `content_format` 配置为 `html`，首次运行前安装 PDF 转换所需浏览器：
 
 ```bash
@@ -43,6 +49,7 @@ uv run wx-article-sync --config config.json --daemon
 - `accounts` 里的每一项都会单独拉取 `page_size * max_pages` 篇文章；同一个公众号不要同时用 `fakeid` 和 `keyword` 配两次，否则会重复查询。
 - 默认文章保存到 `data/articles/YYYY-MM-DD_文章标题`，同步状态保存到 `data/state.json`；备份或迁移时要一起保留 `data/state.json`。
 - `content_format` 为 `html` 时会额外生成 PDF，文件保存在同一文章目录，命名为 `YYYY-MM-DD_文章标题.pdf`。
+- 遇到 `SSL: UNEXPECTED_EOF_WHILE_READING` 这类远端连接中断时，程序会自动重试；需要定位具体接口时用 `--log-level DEBUG` 查看请求阶段和重试记录。
 - 用 cron 调度时建议运行单次同步命令，不要在 cron 里加 `--daemon`。
 - `config.json` 可配置项：
   - `api_base_url`：mptext API 地址，默认 `https://down.mptext.top`。

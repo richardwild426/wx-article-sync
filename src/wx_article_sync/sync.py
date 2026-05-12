@@ -10,7 +10,11 @@ from typing import Any
 
 from .client import Article, MpTextApiError, MpTextClient
 from .config import AccountConfig, SyncConfig
+from .logging import get_logger
 from .pdf import PdfConverter, PlaywrightPdfConverter
+
+
+logger = get_logger("sync")
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,14 @@ class ArticleSyncer:
         self.pdf_converter = pdf_converter or PlaywrightPdfConverter()
 
     def run_once(self, *, validate_auth: bool = True) -> SyncResult:
+        logger.info(
+            "Starting sync accounts=%s page_size=%s max_pages=%s format=%s output_dir=%s",
+            len(self.config.accounts),
+            self.config.page_size,
+            self.config.max_pages,
+            self.config.content_format,
+            self.config.output_dir,
+        )
         if validate_auth:
             self.client.validate_auth_key()
         state = self._load_state()
@@ -45,8 +57,10 @@ class ArticleSyncer:
 
         for account in self.config.accounts:
             fakeid = self._resolve_fakeid(account)
+            logger.info("Syncing account fakeid=%s", fakeid)
             for page in range(self.config.max_pages):
                 begin = page * self.config.page_size
+                logger.info("Listing articles fakeid=%s page=%s begin=%s size=%s", fakeid, page + 1, begin, self.config.page_size)
                 articles = self.client.list_articles(
                     fakeid,
                     begin=begin,
@@ -59,13 +73,16 @@ class ArticleSyncer:
                 for article in articles:
                     if article.url in seen_urls:
                         skipped += 1
+                        logger.info("Skipping already synced article title=%s", article.title)
                         continue
+                    logger.info("Downloading article title=%s format=%s", article.title, self.config.content_format)
                     content = self.client.download_article(article.url, self.config.content_format)
                     self._save_article(article, content, fakeid)
                     seen_urls.add(article.url)
                     downloaded += 1
 
         self._save_state({"seen_urls": sorted(seen_urls), "updated_at": _utc_now()})
+        logger.info("Saved sync state path=%s seen_urls=%s", self.config.state_path, len(seen_urls))
         return SyncResult(scanned=scanned, downloaded=downloaded, skipped=skipped)
 
     def _resolve_fakeid(self, account: AccountConfig) -> str:
@@ -104,9 +121,12 @@ class ArticleSyncer:
         }
         self._atomic_write(content_path, content)
         self._atomic_write(metadata_path, json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
+        logger.info("Saved article title=%s dir=%s content=%s metadata=%s", article.title, article_dir, content_path, metadata_path)
         if self.config.content_format == "html":
             pdf_path = article_dir / f"{article_dir.name}.pdf"
+            logger.info("Converting article HTML to PDF title=%s html=%s pdf=%s", article.title, content_path, pdf_path)
             self.pdf_converter.convert(content_path, pdf_path, self.config.output_dir)
+            logger.info("Converted article PDF title=%s pdf=%s", article.title, pdf_path)
 
     def _article_dir_name(self, article: Article) -> str:
         title = _safe_path_name(article.title)

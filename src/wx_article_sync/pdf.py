@@ -6,6 +6,11 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote
 
+from .logging import get_logger
+
+
+logger = get_logger("pdf")
+
 
 class PdfConverter(Protocol):
     def convert(self, html_path: Path, pdf_path: Path, root_dir: Path) -> None:
@@ -33,6 +38,7 @@ class PlaywrightPdfConverter:
         self.timeout_ms = timeout_ms
 
     def convert(self, html_path: Path, pdf_path: Path, root_dir: Path) -> None:
+        logger.info("Starting HTML to PDF conversion html=%s pdf=%s root=%s", html_path, pdf_path, root_dir)
         try:
             from playwright.sync_api import sync_playwright
         except ImportError as exc:
@@ -47,6 +53,7 @@ class PlaywrightPdfConverter:
 
         server = self._start_http_server(root)
         port = server.server_address[1]
+        logger.debug("Started local HTML server host=%s port=%s root=%s", self.host, port, root)
         try:
             rel_path = html.relative_to(root).as_posix()
             url = f"http://{self.host}:{port}/{quote(rel_path, safe='/')}"
@@ -67,11 +74,13 @@ class PlaywrightPdfConverter:
                             "right": "10mm",
                         },
                     )
+                    logger.info("Finished HTML to PDF conversion pdf=%s", pdf_path)
                 finally:
                     browser.close()
         finally:
             server.shutdown()
             server.server_close()
+            logger.debug("Stopped local HTML server host=%s port=%s", self.host, port)
 
     def _start_http_server(self, root_dir: Path) -> ThreadingHTTPServer:
         server = ThreadingHTTPServer(
