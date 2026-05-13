@@ -30,6 +30,8 @@ uv run wx-article-sync --config config.json
 uv run wx-article-sync --config config.json --log-level DEBUG
 ```
 
+运行日志会同时输出到控制台和 `logs/wx-article-sync.log`。日志文件按 2MB 自动轮转，并保留最近的轮转备份。
+
 如果 `content_format` 配置为 `html`，首次运行前安装 PDF 转换所需浏览器：
 
 ```bash
@@ -138,7 +140,7 @@ launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.wx-article-sync
 - `accounts` 里的每一项都会单独拉取 `page_size * max_pages` 篇文章；同一个公众号不要同时用 `fakeid` 和 `keyword` 配两次，否则会重复查询。
 - 默认文章保存到 `data/articles/YYYY-MM-DD_文章标题`，同步状态保存到 `data/state.json`；备份或迁移时要一起保留 `data/state.json`。
 - `content_format` 为 `html` 时会额外生成 PDF，文件保存在同一文章目录，命名为 `YYYY-MM-DD_文章标题.pdf`。
-- 遇到 `SSL: UNEXPECTED_EOF_WHILE_READING` 这类远端连接中断时，程序会自动重试；需要定位具体接口时用 `--log-level DEBUG` 查看请求阶段和重试记录。
+- 遇到 `SSL: UNEXPECTED_EOF_WHILE_READING` 这类远端连接中断时，程序会自动重试；需要定位具体接口时用 `--log-level DEBUG` 查看请求阶段和重试记录，运行日志默认保存在 `logs/wx-article-sync.log`。
 - 用 cron 调度时建议运行单次同步命令，不要在 cron 里加 `--daemon`。
 - 每次改代码后运行测试：
 

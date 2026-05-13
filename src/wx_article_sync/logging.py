@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
 LOGGER_NAME = "wx_article_sync"
+LOG_FILE_MAX_BYTES = 2 * 1024 * 1024
+DEFAULT_LOG_PATH = Path("logs/wx-article-sync.log")
+LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 
 
 logging.getLogger(LOGGER_NAME).addHandler(logging.NullHandler())
@@ -16,10 +21,26 @@ def get_logger(name: str | None = None) -> logging.Logger:
     return logging.getLogger(f"{LOGGER_NAME}.{name}")
 
 
-def configure_logging(level: str) -> None:
+def configure_logging(level: str, *, log_path: str | Path = DEFAULT_LOG_PATH) -> None:
+    resolved_log_path = Path(log_path).expanduser()
+    resolved_log_path.parent.mkdir(parents=True, exist_ok=True)
+    formatter = logging.Formatter(LOG_FORMAT)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    file_handler = RotatingFileHandler(
+        resolved_log_path,
+        maxBytes=LOG_FILE_MAX_BYTES,
+        backupCount=5,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+
     logging.basicConfig(
         level=getattr(logging, level),
-        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        handlers=[console_handler, file_handler],
+        force=True,
     )
 
 

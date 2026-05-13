@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 config.json
 data/
+logs/
 .pytest_cache/
 .ruff_cache/
 .DS_Store
