@@ -198,6 +198,27 @@ class SkillScriptTest(unittest.TestCase):
         self.assertIn("一次只问一个问题", text)
         self.assertIn("你想同步几个公众号", text)
 
+    def test_skill_guides_user_to_choose_sync_article_count(self):
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        config_text = (ROOT / "references" / "configuration.md").read_text(encoding="utf-8")
+
+        self.assertIn("默认每个公众号每次最多请求 20 篇", skill_text)
+        self.assertIn("每天同步最新 1 篇", skill_text)
+        self.assertIn("默认每个公众号每次最多请求 20 篇", config_text)
+        self.assertIn("如果用户没有明确选择，不要静默沿用默认 20 篇", config_text)
+
+    def test_skill_install_flow_requires_prerequisites_then_initialization(self):
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("先确认前置要求", skill_text)
+        self.assertIn("mptext 前置准备完成了吗", skill_text)
+        self.assertIn("初始化设置", skill_text)
+        self.assertIn("需要同步的公众号", skill_text)
+        self.assertIn("同步的文章数量", skill_text)
+        self.assertIn("同步频率", skill_text)
+        self.assertIn("是否需要联动 IMA", skill_text)
+        self.assertIn("IMA 怎么配置", skill_text)
+
     @staticmethod
     def _run(script: Path, *args: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
