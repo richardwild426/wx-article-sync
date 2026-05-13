@@ -9,7 +9,7 @@
 复制配置文件，并填写 API key 和要同步的公众号：
 
 ```bash
-cp config.example.json config.json
+cp assets/config.example.json config.json
 ```
 
 `config.json` 至少需要保留 `accounts`，并通过 `api_key` 或 `api_key_env` 提供 mptext API key。`api_key_env` 填的是环境变量名；如果不想把 key 写进配置文件，可以继续使用默认的 `MP_TEXT_API_KEY`：
@@ -147,3 +147,36 @@ launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.wx-article-sync
 ```bash
 uv run python -m unittest discover -s tests -p 'test_*.py'
 ```
+
+## Agent Skill
+
+This repository is structured as an Agent Skill for agents that need to configure, run, schedule, inspect, or troubleshoot WeChat article sync jobs.
+
+Use `SKILL.md` as the agent entry point. The intended user experience is conversational: after installation, the agent should ask what the user wants to sync, confirm mptext preparation, collect `fakeid` values, and then generate or validate config. Do not expose clone paths, dependency lists, or command dumps unless the user asks for technical details.
+
+## ima 联动
+
+本项目可以在本地文章保存成功后与 ima 知识库联动。先配置 ima 凭证：
+
+```bash
+mkdir -p ~/.config/ima
+printf '%s' "your_client_id" > ~/.config/ima/client_id
+printf '%s' "your_api_key" > ~/.config/ima/api_key
+```
+
+或使用环境变量：
+
+```bash
+export IMA_OPENAPI_CLIENTID="your_client_id"
+export IMA_OPENAPI_APIKEY="your_api_key"
+```
+
+运行本地同步后生成 ima 导入清单：
+
+```bash
+scripts/ima_check.py
+uv run wx-article-sync --config config.json
+scripts/ima_manifest.py data/articles --output data/ima-manifest.jsonl
+```
+
+`data/ima-manifest.jsonl` 需要交给已安装的 ima-skills，并按其中 `knowledge-base/SKILL.md` 执行文件上传流程：`create_media → COS → add_knowledge`。默认清单不输出原文 URL，避免在终端或日志里泄露链接 token；清单中的 `title` 已按 ima-skills 要求设置为文件名。
