@@ -14,6 +14,9 @@ from .logging import get_logger, redact_url
 logger = get_logger("client")
 
 
+AUTH_EXPIRED_CODE = -1
+
+
 class MpTextApiError(RuntimeError):
     pass
 
@@ -57,8 +60,7 @@ class MpTextClient:
     def validate_auth_key(self) -> None:
         logger.info("Validating mptext API key")
         payload = self._get_json("/api/public/v1/authkey")
-        if self._response_code(payload) != 0:
-            raise MpTextApiError("mptext API key is invalid or expired")
+        self._raise_for_api_error(payload)
 
     def search_accounts(self, keyword: str) -> list[Account]:
         payload = self._get_json("/api/public/v1/account", {"keyword": keyword})
@@ -142,6 +144,8 @@ class MpTextClient:
             with urlopen(request, timeout=timeout) as response:
                 body = response.read().decode("utf-8")
         except HTTPError as exc:
+            if exc.code in (401, 403):
+                raise MpTextApiError(_auth_expired_message(_login_url_from_api_url(url))) from exc
             raise MpTextApiError(f"HTTP {exc.code} from mptext API: {exc.reason}") from exc
         except URLError as exc:
             raise MpTextApiError(f"Failed to connect to mptext API: {exc.reason}") from exc
@@ -155,10 +159,11 @@ class MpTextClient:
         code = payload.get("code")
         return code if isinstance(code, int) else None
 
-    @classmethod
-    def _raise_for_api_error(cls, payload: dict[str, Any]) -> None:
-        code = cls._response_code(payload)
+    def _raise_for_api_error(self, payload: dict[str, Any]) -> None:
+        code = self._response_code(payload)
         if code not in (None, 0):
+            if code == AUTH_EXPIRED_CODE:
+                raise MpTextApiError(_auth_expired_message(self.base_url))
             message = payload.get("message") or payload.get("msg") or "mptext API request failed"
             raise MpTextApiError(str(message))
 
@@ -194,14 +199,15 @@ class MpTextClient:
         nickname = raw.get("nickname") or raw.get("name") or raw.get("alias")
         return Account(fakeid=fakeid, nickname=str(nickname) if nickname else None, raw=raw)
 
-    @staticmethod
-    def _extract_content(payload: Any) -> str:
+    def _extract_content(self, payload: Any) -> str:
         if isinstance(payload, str):
             return payload
         if not isinstance(payload, dict):
             raise MpTextApiError("Download response does not contain article content")
         code = payload.get("code")
         if isinstance(code, int) and code != 0:
+            if code == AUTH_EXPIRED_CODE:
+                raise MpTextApiError(_auth_expired_message(self.base_url))
             message = payload.get("message") or payload.get("msg") or "article download failed"
             raise MpTextApiError(str(message))
         for key in ("content", "html", "markdown", "text"):
@@ -210,5 +216,16 @@ class MpTextClient:
                 return value
         data = payload.get("data")
         if data is not payload:
-            return MpTextClient._extract_content(data)
+            return self._extract_content(data)
         raise MpTextApiError("Download response does not contain article content")
+
+
+def _auth_expired_message(login_url: str) -> str:
+    return (
+        "mptext login session expired. API keys expire with the login session after 4 days. "
+        f"Re-login at {login_url} and update api_key or MP_TEXT_API_KEY."
+    )
+
+
+def _login_url_from_api_url(url: str) -> str:
+    return url.split("/api/", 1)[0].rstrip("/")

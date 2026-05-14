@@ -25,7 +25,7 @@ Actions:
 1. Do not print the API key.
 2. Confirm whether config uses `api_key` or `api_key_env`.
 3. If using `api_key_env`, confirm the process environment contains that variable.
-4. Re-login to mptext and update the key if it expired.
+4. Re-login to `https://down.mptext.top` and update the key if it expired. The mptext auth-key expires with the login session after 4 days.
 
 ## Duplicate or Repeated Downloads
 
@@ -59,4 +59,3 @@ uv run wx-article-sync --config config.json --log-level DEBUG
 ```
 
 Then inspect `logs/wx-article-sync.log`.
-

@@ -135,7 +135,7 @@ launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.wx-article-sync
 
 ## 运维注意事项
 
-- mptext API key 失效后同步会失败，需要重新登录并更新 `api_key` 或 `MP_TEXT_API_KEY`。
+- mptext API key 与网站登录会话同寿命，4 天后会过期；程序识别到登录失效时会提示重新登录 `https://down.mptext.top`，然后更新 `api_key` 或 `MP_TEXT_API_KEY`。
 - 优先在 `config.json` 里配置公众号 `fakeid`；只配置 `keyword` 时会使用 API 搜索结果的第一项，账号重名时可能选错。
 - `accounts` 里的每一项都会单独拉取 `page_size * max_pages` 篇文章；同一个公众号不要同时用 `fakeid` 和 `keyword` 配两次，否则会重复查询。
 - 默认文章保存到 `data/articles/YYYY-MM-DD_文章标题`，同步状态保存到 `data/state.json`；备份或迁移时要一起保留 `data/state.json`。

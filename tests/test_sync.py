@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from wx_article_sync.client import MpTextClient
+from wx_article_sync.client import MpTextApiError, MpTextClient
 from wx_article_sync.config import AccountConfig, SyncConfig
 from wx_article_sync.logging import redact_url
 from wx_article_sync.sync import ArticleSyncer
@@ -100,6 +100,38 @@ class MpTextClientTest(unittest.TestCase):
 
         self.assertEqual(content, "# Title")
         self.assertEqual(len(transport.requests), 2)
+
+    def test_authkey_expiration_points_user_to_login_website(self):
+        transport = FakeTransport([{"code": -1, "message": "expired"}])
+        client = MpTextClient(
+            base_url="https://down.mptext.top",
+            auth_key="secret-key",
+            transport=transport,
+        )
+
+        with self.assertRaises(MpTextApiError) as context:
+            client.validate_auth_key()
+
+        message = str(context.exception)
+        self.assertIn("login session expired", message)
+        self.assertIn("4 days", message)
+        self.assertIn("https://down.mptext.top", message)
+        self.assertIn("update api_key or MP_TEXT_API_KEY", message)
+
+    def test_api_expiration_during_article_listing_points_user_to_login_website(self):
+        transport = FakeTransport([{"code": -1, "message": "expired"}])
+        client = MpTextClient(
+            base_url="https://down.mptext.top",
+            auth_key="secret-key",
+            transport=transport,
+        )
+
+        with self.assertRaises(MpTextApiError) as context:
+            client.list_articles("fake-id")
+
+        message = str(context.exception)
+        self.assertIn("login session expired", message)
+        self.assertIn("https://down.mptext.top", message)
 
 
 class ArticleSyncerTest(unittest.TestCase):
