@@ -121,7 +121,7 @@ launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.wx-article-sync
 
 程序只从 JSON 配置文件读取下面这些字段：
 
-- `accounts`：必填，要同步的公众号列表；每个公众号配置一项，优先写 `fakeid`，没有 `fakeid` 时再用 `keyword` 搜索。可选 `article_keyword`，用于按文章标题关键词过滤。
+- `accounts`：必填，要同步的公众号列表；每个公众号配置一项，优先写 `fakeid`，没有 `fakeid` 时再用 `keyword` 搜索。可选 `article_keyword`，用于按文章标题关键词过滤；可选 `exclude_title_keywords`，用于跳过标题包含指定词的文章。
 - `api_key`：可选，直接写入 mptext API key；本地单机运行可用，提交代码前不要把真实 key 放进仓库。
 - `api_key_env`：可选，读取 API key 的环境变量名，默认 `MP_TEXT_API_KEY`。
 - `api_base_url`：可选，mptext API 地址，默认 `https://down.mptext.top`。

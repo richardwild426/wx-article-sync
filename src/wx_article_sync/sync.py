@@ -75,6 +75,10 @@ class ArticleSyncer:
                         skipped += 1
                         logger.info("Skipping already synced article title=%s", article.title)
                         continue
+                    if account.exclude_title_keywords and any(kw in article.title for kw in account.exclude_title_keywords):
+                        skipped += 1
+                        logger.info("Skipping excluded article title=%s keywords=%s", article.title, account.exclude_title_keywords)
+                        continue
                     logger.info("Downloading article title=%s format=%s", article.title, self.config.content_format)
                     content = self.client.download_article(article.url, self.config.content_format)
                     self._save_article(article, content, fakeid)

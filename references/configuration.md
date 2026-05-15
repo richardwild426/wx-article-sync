@@ -67,6 +67,7 @@ Use this for a business user who wants the latest article from two accounts each
 - Do not configure the same account twice.
 - Do not create one item with `fakeid` and another item with `keyword` for the same account.
 - Use `article_keyword` only when the user explicitly wants title filtering.
+- Use `exclude_title_keywords` only when specific title phrases should be skipped after listing. It accepts a string or a list of strings.
 
 ## Count Rules
 
@@ -89,7 +90,7 @@ Use this for a business user who wants the latest article from two accounts each
 Use the bundled validator:
 
 ```bash
-python scripts/validate_config.py config.json
+python scripts/validate_config.py /absolute/path/to/config.json
 ```
 
 The validator checks business-safe shape and common mistakes. It does not verify whether the API key is valid or whether a `fakeid` exists in mptext.

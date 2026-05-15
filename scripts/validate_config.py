@@ -58,6 +58,13 @@ def validate_config(payload: dict[str, Any]) -> dict[str, Any]:
             raise ValidationError(f"accounts[{index}] should not define both fakeid and keyword")
         if "article_keyword" in account and not isinstance(account["article_keyword"], str):
             raise ValidationError(f"accounts[{index}].article_keyword must be a string")
+        exclude_title_keywords = account.get("exclude_title_keywords", [])
+        if isinstance(exclude_title_keywords, str):
+            continue
+        if not isinstance(exclude_title_keywords, list) or any(
+            not isinstance(keyword, str) for keyword in exclude_title_keywords
+        ):
+            raise ValidationError(f"accounts[{index}].exclude_title_keywords must be a string or list of strings")
 
     api_key = payload.get("api_key")
     api_key_env = payload.get("api_key_env", "MP_TEXT_API_KEY")

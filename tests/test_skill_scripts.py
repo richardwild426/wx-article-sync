@@ -88,6 +88,29 @@ class SkillScriptTest(unittest.TestCase):
             self.assertIn("api_key_env must be an environment variable name", result.stderr)
             self.assertNotIn("ab7c5801", result.stderr)
 
+    def test_validate_config_rejects_invalid_exclude_title_keywords(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "api_key_env": "MP_TEXT_API_KEY",
+                        "accounts": [
+                            {
+                                "fakeid": "MzkyMjUxNDU5Nw==",
+                                "exclude_title_keywords": ["广告", 123],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self._run(VALIDATE_CONFIG, config_path)
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("exclude_title_keywords must be a string or list of strings", result.stderr)
+
     def test_inspect_state_summarizes_without_printing_full_urls(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             state_path = Path(tmpdir) / "state.json"
@@ -218,6 +241,16 @@ class SkillScriptTest(unittest.TestCase):
         self.assertIn("同步频率", skill_text)
         self.assertIn("是否需要联动 IMA", skill_text)
         self.assertIn("IMA 怎么配置", skill_text)
+
+    def test_skill_disambiguates_config_workspace_from_project_root(self):
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        operations_text = (ROOT / "references" / "operations.md").read_text(encoding="utf-8")
+
+        self.assertIn("CONFIG_PATH", skill_text)
+        self.assertIn("--config` 传入 `CONFIG_PATH` 的绝对路径", skill_text)
+        self.assertIn("不要把配置复制到源码目录", skill_text)
+        self.assertIn("uv run wx-article-sync --config /absolute/path/to/config.json", operations_text)
+        self.assertIn("Relative `output_dir` and `state_path` values are resolved", operations_text)
 
     @staticmethod
     def _run(script: Path, *args: Path) -> subprocess.CompletedProcess[str]:

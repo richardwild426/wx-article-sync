@@ -16,6 +16,7 @@ class AccountConfig:
     fakeid: str | None = None
     keyword: str | None = None
     article_keyword: str | None = None
+    exclude_title_keywords: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "AccountConfig":
@@ -23,10 +24,15 @@ class AccountConfig:
         keyword = payload.get("keyword")
         if not fakeid and not keyword:
             raise ConfigError("Each account must define either fakeid or keyword")
+        raw_exclude = payload.get("exclude_title_keywords", [])
+        if isinstance(raw_exclude, str):
+            raw_exclude = [raw_exclude]
+        exclude = tuple(str(k) for k in raw_exclude) if isinstance(raw_exclude, list) else ()
         return cls(
             fakeid=str(fakeid) if fakeid else None,
             keyword=str(keyword) if keyword else None,
             article_keyword=str(payload["article_keyword"]) if payload.get("article_keyword") else None,
+            exclude_title_keywords=exclude,
         )
 
 

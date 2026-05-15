@@ -59,7 +59,7 @@ scripts/ima_check.py
 1. 先运行本地同步：
 
 ```bash
-uv run wx-article-sync --config config.json
+uv run wx-article-sync --config /absolute/path/to/config.json
 ```
 
 2. 生成 ima 导入清单：
@@ -84,7 +84,7 @@ scripts/ima_manifest.py data/articles --include-url --output data/ima-manifest-w
 
 ```bash
 cd /path/to/wx-article-sync
-uv run wx-article-sync --config config.json
+uv run wx-article-sync --config /absolute/path/to/config.json
 scripts/ima_manifest.py data/articles --output data/ima-manifest.jsonl
 # Then read ima-skills knowledge-base/SKILL.md and import each file via create_media → COS → add_knowledge.
 ```

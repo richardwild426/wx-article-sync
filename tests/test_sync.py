@@ -350,6 +350,52 @@ class ArticleSyncerTest(unittest.TestCase):
             article_request = transport.requests[-1]["url"]
             self.assertIn("fakeid=resolved-fake-id", article_request)
 
+    def test_sync_skips_articles_matching_excluded_title_keywords(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "articles"
+            state_path = Path(tmpdir) / "state.json"
+            transport = FakeTransport(
+                [
+                    {"code": 0},
+                    {
+                        "code": 0,
+                        "data": {
+                            "list": [
+                                {
+                                    "title": "Sponsored Post",
+                                    "url": "https://mp.weixin.qq.com/s/sponsored",
+                                    "publish_time": 1710000000,
+                                },
+                                {
+                                    "title": "Research Note",
+                                    "url": "https://mp.weixin.qq.com/s/research",
+                                    "publish_time": 1710000000,
+                                },
+                            ]
+                        },
+                    },
+                    "# Research Note\n\nBody",
+                ]
+            )
+            config = SyncConfig(
+                api_base_url="https://down.mptext.top",
+                api_key="secret-key",
+                output_dir=output_dir,
+                state_path=state_path,
+                accounts=[AccountConfig(fakeid="fake-id", exclude_title_keywords=("Sponsored",))],
+            )
+            syncer = ArticleSyncer(config, client=MpTextClient(config.api_base_url, config.api_key, transport=transport))
+
+            result = syncer.run_once()
+
+            self.assertEqual(result.scanned, 2)
+            self.assertEqual(result.downloaded, 1)
+            self.assertEqual(result.skipped, 1)
+            self.assertFalse((output_dir / "2024-03-09_Sponsored Post").exists())
+            self.assertTrue((output_dir / "2024-03-09_Research Note").is_dir())
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(state["seen_urls"], ["https://mp.weixin.qq.com/s/research"])
+
     def test_config_reads_api_key_from_environment(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.json"
@@ -373,6 +419,27 @@ class ArticleSyncerTest(unittest.TestCase):
 
             self.assertEqual(config.api_key, "secret-key")
             self.assertEqual(config.output_dir, (Path(tmpdir) / "articles").resolve())
+
+    def test_config_reads_exclude_title_keywords_from_string_or_list(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "api_key": "secret-key",
+                        "accounts": [
+                            {"fakeid": "first", "exclude_title_keywords": "Sponsored"},
+                            {"fakeid": "second", "exclude_title_keywords": ["Ad", "Promo"]},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            config = SyncConfig.from_file(config_path)
+
+            self.assertEqual(config.accounts[0].exclude_title_keywords, ("Sponsored",))
+            self.assertEqual(config.accounts[1].exclude_title_keywords, ("Ad", "Promo"))
 
     def test_config_error_does_not_echo_api_key_env_value(self):
         with tempfile.TemporaryDirectory() as tmpdir:
